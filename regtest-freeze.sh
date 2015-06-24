@@ -32,14 +32,22 @@ RESULT=$($NODEJS freeze.js --txid=$TXID --vout=$VOUT --scriptPubKey=$SCRIPT_PUBK
 
 FREEZE_TRAN=$(/bin/echo $RESULT | /usr/bin/env python3 -c 'import json, sys, decimal; data=json.load(sys.stdin); print(data["freezeTransaction"]["raw"]);');
 SPEND_TRAN=$(/bin/echo $RESULT | /usr/bin/env python3 -c 'import json, sys, decimal; data=json.load(sys.stdin); print(data["spendTransaction"]["raw"]);');
+BROKEN_SPEND_TRAN=$(/bin/echo $RESULT | /usr/bin/env python3 -c 'import json, sys, decimal; data=json.load(sys.stdin); print(data["brokenSpendTransaction"]["raw"]);');
 
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$FREEZE_TRAN";
+$BITCOIN_CLI -regtest -datadir=$REGTEST_DIR getblockcount;
+# should fail as being invalid cltv - Locktime requirement not satisfied (in debug.log)
+$BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$BROKEN_SPEND_TRAN";
 # should fail as being non-final
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$SPEND_TRAN";
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR generate 47 > /dev/null 2>&1;
+$BITCOIN_CLI -regtest -datadir=$REGTEST_DIR getblockcount;
 # should fail as being non-final
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$SPEND_TRAN";
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR generate 1 > /dev/null 2>&1;
+$BITCOIN_CLI -regtest -datadir=$REGTEST_DIR getblockcount;
+# should fail as being invalid cltv - Locktime requirement not satisfied (in debug.log)
+$BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$BROKEN_SPEND_TRAN";
 # should work
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR sendrawtransaction "$SPEND_TRAN";
 $BITCOIN_CLI -regtest -datadir=$REGTEST_DIR generate 1 > /dev/null 2>&1;

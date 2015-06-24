@@ -70,40 +70,52 @@ var freezeTransaction = new bitcore.Transaction().from({
 .to(p2shAddress, Number(args.satoshis) - 100000)
 .sign(privKey);
 
-var spendTransaction = new bitcore.Transaction().from({
-  txid: freezeTransaction.id,
-  vout: 0,
-  scriptPubKey: redeemScript.toScriptHashOut(),
-  satoshis: Number(args.satoshis) - 100000,
-})
-// send back to the original address for ease of testing only
-.to(privKey.toAddress(), Number(args.satoshis) - 200000)
-// CLTV requires the transaction nLockTime to be >= the stack argument in the redeem script
-.lockUntilBlockHeight(LOCK_UNTIL_BLOCK);
-// the CLTV opcode requires that the input's sequence number not be finalized
-spendTransaction.inputs[0].sequenceNumber = 0;
+var getSpendTransaction = function(lockTime, sequenceNumber) {
+  var result = new bitcore.Transaction().from({
+    txid: freezeTransaction.id,
+    vout: 0,
+    scriptPubKey: redeemScript.toScriptHashOut(),
+    satoshis: Number(args.satoshis) - 100000,
+  })
+  // send back to the original address for ease of testing only
+  .to(privKey.toAddress(), Number(args.satoshis) - 200000)
+  // CLTV requires the transaction nLockTime to be >= the stack argument in the redeem script
+  .lockUntilBlockHeight(lockTime);
+  // the CLTV opcode requires that the input's sequence number not be finalized
+  result.inputs[0].sequenceNumber = sequenceNumber;
 
-var signature = bitcore.Transaction.sighash.sign(
-  spendTransaction,
-  privKey,
-  bitcore.crypto.Signature.SIGHASH_ALL,
-  0,
-  redeemScript
-);
+  var signature = bitcore.Transaction.sighash.sign(
+    result,
+    privKey,
+    bitcore.crypto.Signature.SIGHASH_ALL,
+    0,
+    redeemScript
+  );
 
-// append the left-zero-padded SIGHASH value to the end of the signature
-signature = Buffer.concat([
-  signature.toBuffer(),
-  new Buffer((0x100 + bitcore.crypto.Signature.SIGHASH_ALL).toString(16).slice(-2), 'hex')
-]);
+  // append the left-zero-padded SIGHASH value to the end of the signature
+  signature = Buffer.concat([
+    signature.toBuffer(),
+    new Buffer((0x100 + bitcore.crypto.Signature.SIGHASH_ALL).toString(16).slice(-2), 'hex')
+  ]);
 
-// setup the scriptSig of the spending transaction to spend the p2sh-cltv-p2pkh redeem script
-spendTransaction.inputs[0].setScript(
-  bitcore.Script.empty()
-  .add(signature)
-  .add(privKey.toPublicKey().toBuffer())
-  .add(redeemScript.toBuffer())
-);
+  // setup the scriptSig of the spending transaction to spend the p2sh-cltv-p2pkh redeem script
+  result.inputs[0].setScript(
+    bitcore.Script.empty()
+    .add(signature)
+    .add(privKey.toPublicKey().toBuffer())
+    .add(redeemScript.toBuffer())
+  );
+
+  return result;
+};
+
+// this is the valid attempt to spend the cltv frozen funds
+var spendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0);
+
+// this is an invalid attempt to spend the cltv frozen funds by using a finalized
+// transaction input to disable to transaction's time lock. the cltv opcode
+// correctly prevents this from working.
+var brokenSpendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0xffffffff);
 
 var result = {
   fromAddress: privKey.toAddress().toString(),
@@ -116,6 +128,10 @@ var result = {
   spendTransaction: {
     txid: spendTransaction.id,
     raw: spendTransaction.serialize(true),
+  },
+  brokenSpendTransaction: {
+    txid: brokenSpendTransaction.id,
+    raw: brokenSpendTransaction.serialize(true),
   },
 };
 
