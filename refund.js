@@ -32,7 +32,7 @@ var redeemScript = bitcore.Script.empty()
     .add(receiverKey.toPublicKey().toBuffer()).add('OP_CHECKSIGVERIFY')
   .add('OP_ELSE')
     // useful generic way to get the minimal encoding of the locktime stack argument
-    .add(bitcore.crypto.BN.fromNumber(LOCK_UNTIL_BLOCK).toBuffer({endian: 'little'}))
+    .add(bitcore.crypto.BN.fromNumber(LOCK_UNTIL_BLOCK).toScriptNumBuffer())
     .add('OP_NOP2').add('OP_DROP')
   .add('OP_ENDIF')
   .add(senderKey.toPublicKey().toBuffer()).add('OP_CHECKSIG');
