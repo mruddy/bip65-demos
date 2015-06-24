@@ -16,6 +16,7 @@
   "author": "mruddy",
   "license": "MIT",
   "dependencies": {
+    "argparse": "^1.0.2",
     "bitcore": "^0.12.9"
   }
 }

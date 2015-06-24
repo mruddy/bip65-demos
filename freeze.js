@@ -6,53 +6,90 @@
 // script that uses the CHECKLOCKTIMEVERIFY (CLTV) opcode.
 // For details, see
 // https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#freezing-funds
+// This script assumes that it is being used in conjunction with a fresh regtest
+// environment that was setup with the accompanying regtest-freeze.sh script.
 
 'use strict';
 
+var LOCK_UNTIL_BLOCK = 150; // pick a block height above the current tip
+
+var argparse = require('argparse');
 var bitcore = require('bitcore');
 
-bitcore.Networks.defaultNetwork = bitcore.Networks.testnet;
+bitcore.Networks.defaultNetwork = bitcore.Networks.testnet; // works for regtest
 
-var LOCK_UNTIL_BLOCK = 484296; // pick a block height above the current tip
+var parser = new argparse.ArgumentParser({
+  description: 'freeze',
+  addHelp: true,
+});
 
-// use a compressed format brain wallet key for testing.
-// to use the uncompressed format, don't convert the sha256 buffer to a string.
-// do not use brain wallets for production or to store value that you do not
-// intend to lose https://en.bitcoin.it/wiki/Brainwallet
+parser.addArgument(['--txid'], {
+  required: true,
+  help: 'transaction id of an unspent output',
+});
 
-// testnet address mmAzFHun2eGXrsMsfGh7Skqu9FFmQ399mA
-// https://testnet3.toshi.io/api/v0/addresses/mmAzFHun2eGXrsMsfGh7Skqu9FFmQ399mA/transactions
-var privKey = new bitcore.PrivateKey(bitcore.crypto.Hash.sha256(new Buffer('bip65 testnet demo cltv freeze', 'utf8')).toString('hex'));
+parser.addArgument(['--vout'], {
+  required: true,
+  help: 'vout of an unspent output',
+});
+
+parser.addArgument(['--scriptPubKey'], {
+  required: true,
+  help: 'scriptPubKey of an unspent output',
+});
+
+parser.addArgument(['--satoshis'], {
+  required: true,
+  help: 'value of an unspent output (given in satoshis)',
+});
+
+var args = parser.parseArgs();
+
+// use a compressed format brain wallet key for ease of testing. doing so yields
+// fixed addresses.
+
+// address = mkESjLZW66TmHhiFX8MCaBjrhZ543PPh9a
+// privKey WIF = cP3voGKJHVSrUsEdrj8HnrpwLNgNngrgijMyyyRowRo15ZattbHm
+var privKey = new bitcore.PrivateKey(bitcore.crypto.Hash.sha256(new Buffer('alice', 'utf8')).toString('hex'));
 
 var redeemScript = bitcore.Script.empty()
   // useful generic way to get the minimal encoding of the locktime stack argument
-  .add(bitcore.crypto.BN.fromNumber(LOCK_UNTIL_BLOCK).toBuffer({endian: 'little'}))
+  .add(bitcore.crypto.BN.fromNumber(LOCK_UNTIL_BLOCK).toScriptNumBuffer())
   .add('OP_NOP2').add('OP_DROP')
   .add(bitcore.Script.buildPublicKeyHashOut(privKey.toAddress()));
 
-// https://testnet3.toshi.io/api/v0/addresses/2Mxvf1GiDH687oC4FUnZFKeRbihb2d6FCBa/transactions
+// address = 2NAiPrBTcYyedveW7ydDuVyxGGeho3pK3C7
 var p2shAddress = bitcore.Address.payingTo(redeemScript);
 
 var freezeTransaction = new bitcore.Transaction().from({
-  txid: 'f106249e80307baee9f17226974b77c965941f9cd24d16e885ec235c80331ce4', // tran id of an utxo associated with the privKey's address
-  vout: 0,                                                                  // output index of the utxo within the transaction with id = txid
-  scriptPubKey: '76a9143e0a10b34f195b8b53c39d38b38fc6ec9bb1f6fe88ac',       // scriptPubKey of the utxo txid[vout]
-  satoshis: 170000000,                                                      // value of the utxo txid[vout]
+  txid: args.txid, // tran id of an utxo associated with the privKey's address
+  vout: Number(args.vout), // output index of the utxo within the transaction with id = txid
+  scriptPubKey: args.scriptPubKey, // scriptPubKey of the utxo txid[vout]
+  satoshis: Number(args.satoshis), // value of the utxo txid[vout]
 })
-.to(p2shAddress, 169900000)                                                 // pay a generous miner fee and put the rest into an output for p2shAddress
+.to(p2shAddress, Number(args.satoshis) - 100000)
 .sign(privKey);
 
 var spendTransaction = new bitcore.Transaction().from({
   txid: freezeTransaction.id,
   vout: 0,
   scriptPubKey: redeemScript.toScriptHashOut(),
-  satoshis: 169900000,
+  satoshis: Number(args.satoshis) - 100000,
 })
-.to(privKey.toAddress(), 169800000) // send back to the original address for ease of testing only
-.lockUntilBlockHeight(LOCK_UNTIL_BLOCK); // CLTV requires the transaction nLockTime to be >= the stack argument in the redeem script
-spendTransaction.inputs[0].sequenceNumber = 0; // the CLTV opcode requires that the input's sequence number not be finalized
+// send back to the original address for ease of testing only
+.to(privKey.toAddress(), Number(args.satoshis) - 200000)
+// CLTV requires the transaction nLockTime to be >= the stack argument in the redeem script
+.lockUntilBlockHeight(LOCK_UNTIL_BLOCK);
+// the CLTV opcode requires that the input's sequence number not be finalized
+spendTransaction.inputs[0].sequenceNumber = 0;
 
-var signature = bitcore.Transaction.sighash.sign(spendTransaction, privKey, bitcore.crypto.Signature.SIGHASH_ALL, 0, redeemScript);
+var signature = bitcore.Transaction.sighash.sign(
+  spendTransaction,
+  privKey,
+  bitcore.crypto.Signature.SIGHASH_ALL,
+  0,
+  redeemScript
+);
 
 // append the left-zero-padded SIGHASH value to the end of the signature
 signature = Buffer.concat([
@@ -68,12 +105,19 @@ spendTransaction.inputs[0].setScript(
   .add(redeemScript.toBuffer())
 );
 
-console.log('from address : ' + privKey.toAddress());
-console.log('p2sh address : ' + p2shAddress);
-console.log('redeem script: ' + redeemScript);
-console.log();
-console.log('freezeTransaction (' + freezeTransaction.id + '): ' + freezeTransaction.serialize(true));
-console.log();
-console.log('spendTransaction (' + spendTransaction.id + '): ' + spendTransaction.serialize(true));
-console.log();
+var result = {
+  fromAddress: privKey.toAddress().toString(),
+  p2shAddress: p2shAddress.toString(),
+  redeemScript: redeemScript.toString(),
+  freezeTransaction: {
+    txid: freezeTransaction.id,
+    raw: freezeTransaction.serialize(true),
+  },
+  spendTransaction: {
+    txid: spendTransaction.id,
+    raw: spendTransaction.serialize(true),
+  },
+};
+
+console.log(JSON.stringify(result, null, 2));
 
