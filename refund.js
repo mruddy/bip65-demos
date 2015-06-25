@@ -60,17 +60,12 @@ var refundTransaction = new bitcore.Transaction().from({
 refundTransaction.inputs[0].sequenceNumber = 0; // the CLTV opcode requires that the input's sequence number not be finalized
 
 var signature = bitcore.Transaction.sighash.sign(refundTransaction, senderKey, bitcore.crypto.Signature.SIGHASH_ALL, 0, redeemScript);
-
-// append the left-zero-padded SIGHASH value to the end of the signature
-signature = Buffer.concat([
-  signature.toBuffer(),
-  new Buffer((0x100 + bitcore.crypto.Signature.SIGHASH_ALL).toString(16).slice(-2), 'hex')
-]);
+signature.nhashtype = bitcore.crypto.Signature.SIGHASH_ALL;
 
 // setup the scriptSig of the spending transaction to spend the p2sh-cltv-p2pkh redeem script
 refundTransaction.inputs[0].setScript(
   bitcore.Script.empty()
-  .add(signature)
+  .add(signature.toTxFormat())
   .add('OP_FALSE') // choose the time-delayed refund code path
   .add(redeemScript.toBuffer())
 );

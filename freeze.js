@@ -91,17 +91,14 @@ var getSpendTransaction = function(lockTime, sequenceNumber) {
     0,
     redeemScript
   );
-
-  // append the left-zero-padded SIGHASH value to the end of the signature
-  signature = Buffer.concat([
-    signature.toBuffer(),
-    new Buffer((0x100 + bitcore.crypto.Signature.SIGHASH_ALL).toString(16).slice(-2), 'hex')
-  ]);
+  // next statement is needed until a bug in bitcore is fixed
+  // https://github.com/bitpay/bitcore/pull/1278
+  signature.nhashtype = bitcore.crypto.Signature.SIGHASH_ALL;
 
   // setup the scriptSig of the spending transaction to spend the p2sh-cltv-p2pkh redeem script
   result.inputs[0].setScript(
     bitcore.Script.empty()
-    .add(signature)
+    .add(signature.toTxFormat())
     .add(privKey.toPublicKey().toBuffer())
     .add(redeemScript.toBuffer())
   );
