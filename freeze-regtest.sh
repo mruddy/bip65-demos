@@ -1,13 +1,15 @@
 #!/bin/bash
+# usage: ./freeze-regtest.sh
 
 # set these variables for your environment's specific configuration
-REGTEST_DIR=/tmp/bitcoin-regtest;
+REGTEST_DIR=/tmp/bitcoin-freeze-regtest;
 BITCOIN_QT=~/Desktop/bitcoin/src/qt/bitcoin-qt;
 BITCOIN_CLI=~/Desktop/bitcoin/src/bitcoin-cli;
-NODEJS=/opt/node-v0.12.5-linux-x64/bin/node
+NODEJS=/opt/node-v0.12.5-linux-x64/bin/node;
 
 # setup a fresh regtest environment for this test
 /bin/mkdir -p $REGTEST_DIR;
+# need this mainly for the rpcpassword
 /bin/cp ~/.bitcoin/bitcoin.conf $REGTEST_DIR;
 
 # configure the new regtest environment

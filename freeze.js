@@ -7,7 +7,7 @@
 // For details, see
 // https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#freezing-funds
 // This script assumes that it is being used in conjunction with a fresh regtest
-// environment that was setup with the accompanying regtest-freeze.sh script.
+// environment that was setup with the accompanying freeze-regtest.sh script.
 
 'use strict';
 
