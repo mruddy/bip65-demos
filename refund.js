@@ -12,37 +12,10 @@
 
 var LOCK_UNTIL_BLOCK = 150; // pick a block height above the current tip
 
-var argparse = require('argparse');
+var args = require('./args-regtest.js');
 var bitcore = require('bitcore');
 
 bitcore.Networks.defaultNetwork = bitcore.Networks.testnet; // works for regtest
-
-var parser = new argparse.ArgumentParser({
-  description: 'refund',
-  addHelp: true,
-});
-
-parser.addArgument(['--txid'], {
-  required: true,
-  help: 'transaction id of an unspent output',
-});
-
-parser.addArgument(['--vout'], {
-  required: true,
-  help: 'vout of an unspent output',
-});
-
-parser.addArgument(['--scriptPubKey'], {
-  required: true,
-  help: 'scriptPubKey of an unspent output',
-});
-
-parser.addArgument(['--satoshis'], {
-  required: true,
-  help: 'value of an unspent output (given in satoshis)',
-});
-
-var args = parser.parseArgs();
 
 // use a compressed format brain wallet key for ease of testing. doing so yields
 // fixed addresses.
