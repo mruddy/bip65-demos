@@ -59,9 +59,6 @@ var refundTransaction = new bitcore.Transaction().from({
 refundTransaction.inputs[0].sequenceNumber = 0; // the CLTV opcode requires that the input's sequence number not be finalized
 
 var signature = bitcore.Transaction.sighash.sign(refundTransaction, alice, bitcore.crypto.Signature.SIGHASH_ALL, 0, redeemScript);
-// next statement is needed until a bug in bitcore is fixed
-// https://github.com/bitpay/bitcore/pull/1278
-signature.nhashtype = bitcore.crypto.Signature.SIGHASH_ALL;
 
 // setup the scriptSig of the spending transaction to spend the p2sh-cltv-p2pkh redeem script
 refundTransaction.inputs[0].setScript(
