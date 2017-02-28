@@ -11,30 +11,28 @@
 
 'use strict';
 
-var LOCK_UNTIL_BLOCK = 150; // pick a block height above the current tip
+const LOCK_UNTIL_BLOCK = 150; // pick a block height above the current tip
 
-var args = require('./args-regtest.js');
-var bitcore = require('bitcore');
+const args = require('./args-regtest.js');
+const bitcore = require('bitcore-lib');
 
 bitcore.Networks.defaultNetwork = bitcore.Networks.testnet; // works for regtest
 
-// use a compressed format brain wallet key for ease of testing. doing so yields
-// fixed addresses.
+// note: using a fixed private key of 1 for ease of demonstration only.
+// address = mrCDrCybB6J1vRfbwM5hemdJz73FwDBC8r
+// privKey WIF = cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA
+const privKey = bitcore.PrivateKey(bitcore.crypto.BN.One);
 
-// address = mkESjLZW66TmHhiFX8MCaBjrhZ543PPh9a
-// privKey WIF = cP3voGKJHVSrUsEdrj8HnrpwLNgNngrgijMyyyRowRo15ZattbHm
-var privKey = new bitcore.PrivateKey(bitcore.crypto.Hash.sha256(new Buffer('alice', 'utf8')).toString('hex'));
-
-var redeemScript = bitcore.Script.empty()
+const redeemScript = bitcore.Script.empty()
   // useful generic way to get the minimal encoding of the locktime stack argument
   .add(bitcore.crypto.BN.fromNumber(LOCK_UNTIL_BLOCK).toScriptNumBuffer())
-  .add('OP_NOP2').add('OP_DROP')
+  .add('OP_CHECKLOCKTIMEVERIFY').add('OP_DROP')
   .add(bitcore.Script.buildPublicKeyHashOut(privKey.toAddress()));
 
-// address = 2NAiPrBTcYyedveW7ydDuVyxGGeho3pK3C7
-var p2shAddress = bitcore.Address.payingTo(redeemScript);
+// address = 2MxEcV5dx8CsDAByqN5PbB3NPmhyBkNLHVD
+const p2shAddress = bitcore.Address.payingTo(redeemScript);
 
-var freezeTransaction = new bitcore.Transaction().from({
+const freezeTransaction = new bitcore.Transaction().from({
   txid: args.txid, // tran id of an utxo associated with the privKey's address
   vout: Number(args.vout), // output index of the utxo within the transaction with id = txid
   scriptPubKey: args.scriptPubKey, // scriptPubKey of the utxo txid[vout]
@@ -43,8 +41,8 @@ var freezeTransaction = new bitcore.Transaction().from({
 .to(p2shAddress, Number(args.satoshis) - 100000)
 .sign(privKey);
 
-var getSpendTransaction = function(lockTime, sequenceNumber) {
-  var result = new bitcore.Transaction().from({
+const getSpendTransaction = function(lockTime, sequenceNumber) {
+  const result = new bitcore.Transaction().from({
     txid: freezeTransaction.id,
     vout: 0,
     scriptPubKey: redeemScript.toScriptHashOut(),
@@ -57,7 +55,7 @@ var getSpendTransaction = function(lockTime, sequenceNumber) {
   // the CLTV opcode requires that the input's sequence number not be finalized
   result.inputs[0].sequenceNumber = sequenceNumber;
 
-  var signature = bitcore.Transaction.sighash.sign(
+  const signature = bitcore.Transaction.sighash.sign(
     result,
     privKey,
     bitcore.crypto.Signature.SIGHASH_ALL,
@@ -77,14 +75,14 @@ var getSpendTransaction = function(lockTime, sequenceNumber) {
 };
 
 // this is the valid attempt to spend the cltv frozen funds
-var spendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0);
+const spendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0);
 
 // this is an invalid attempt to spend the cltv frozen funds by using a finalized
 // transaction input to disable to transaction's time lock. the cltv opcode
 // correctly prevents this from working.
-var brokenSpendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0xffffffff);
+const brokenSpendTransaction = getSpendTransaction(LOCK_UNTIL_BLOCK, 0xffffffff);
 
-var result = {
+const result = {
   fromAddress: privKey.toAddress().toString(),
   p2shAddress: p2shAddress.toString(),
   redeemScript: redeemScript.toString(),

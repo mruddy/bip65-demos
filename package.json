@@ -1,14 +1,14 @@
 {
   "name": "bip65-demos",
-  "version": "1.0.0",
-  "description": "Demonstrate uses of the CHECKLOCKTIMEVERIFY opcode introduced by BIP65.",
+  "version": "2.0.0",
+  "description": "Demonstrate uses of the CheckLockTimeVerify opcode introduced by BIP65.",
   "main": "freeze.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "CLTV",
-    "CHECKLOCKTIMEVERIFY",
+    "CheckLockTimeVerify",
     "OP_CHECKLOCKTIMEVERIFY",
     "BIP65",
     "BIP0065"
@@ -16,7 +16,8 @@
   "author": "mruddy",
   "license": "MIT",
   "dependencies": {
-    "argparse": "^1.0.2",
-    "bitcore": "^0.12.11"
+    "argparse": "^1.0.9",
+    "bitcore-lib": "^0.13.19"
   }
 }
+

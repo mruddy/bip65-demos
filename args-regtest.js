@@ -1,6 +1,6 @@
-var argparse = require('argparse');
+const argparse = require('argparse');
 
-var parser = new argparse.ArgumentParser({
+const parser = new argparse.ArgumentParser({
   addHelp: true,
 });
 
